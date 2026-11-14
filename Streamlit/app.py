@@ -1,6 +1,6 @@
 
-import streamlit as st
 import pickle
+import streamlit as st
 from pathlib import Path
 
 # ---------------- PAGE CONFIG ----------------
@@ -10,34 +10,28 @@ st.set_page_config(
     layout="centered"
 )
 
-# ---------------- LOAD MODEL ----------------
-BASE_DIR = Path(__file__).resolve().parent
+# ---------------- MODEL LOADING ----------------
+BASE_DIR = Path(__file__).resolve().parent.parent
 
-MODEL_PATH = BASE_DIR / "model.pkl"
-VECTORIZER_PATH = BASE_DIR / "vectorizer.pkl"
+MODEL_PATH = BASE_DIR / "Jupyter" / "model.pkl"
+VECTORIZER_PATH = BASE_DIR / "Jupyter" / "vectorizer.pkl"
 
-@st.cache_resource
-def load_model():
-    if not MODEL_PATH.exists():
-        raise FileNotFoundError(f"Missing file: {MODEL_PATH}")
-
-    if not VECTORIZER_PATH.exists():
-        raise FileNotFoundError(f"Missing file: {VECTORIZER_PATH}")
-
-    with open(MODEL_PATH, "rb") as f:
-        model = pickle.load(f)
-
-    with open(VECTORIZER_PATH, "rb") as f:
-        cv = pickle.load(f)
-
-    return model, cv
+model = None
+cv = None
+model_loaded = False
 
 try:
-    model, cv = load_model()
+    with open(MODEL_PATH, "rb") as file:
+        model = pickle.load(file)
+
+    with open(VECTORIZER_PATH, "rb") as file:
+        cv = pickle.load(file)
+
     model_loaded = True
+
 except Exception as e:
-    model_loaded = False
     st.error(f"Model Loading Error: {e}")
+
 
 # ---------------- CUSTOM CSS ----------------
 st.markdown("""
@@ -134,6 +128,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+
 # ---------------- HEADER ----------------
 st.markdown(
     '<div class="main-title">🤖 AI TEXT PREDICTOR</div>',
@@ -146,6 +141,7 @@ st.markdown(
 )
 
 st.markdown("---")
+
 
 # ---------------- MAIN APP ----------------
 st.markdown("### ✨ Enter Your Message")
@@ -166,6 +162,7 @@ with col2:
 
 if clear:
     st.rerun()
+
 
 # ---------------- PREDICTION ----------------
 if predict:
@@ -195,17 +192,20 @@ if predict:
             else:
                 st.info(f"Prediction: {output[0]}")
 
-            # Probability
+            # Prediction Probability
             if hasattr(model, "predict_proba"):
-                probability = model.predict_proba(data)[0]
-                confidence = max(probability) * 100
+                probabilities = model.predict_proba(data)[0]
+                confidence = max(probabilities) * 100
 
                 st.markdown("#### Prediction Probability")
-                st.progress(float(max(probability)))
-                st.write(f"Probability of predicted class: {confidence:.2f}%")
+                st.progress(float(max(probabilities)))
+                st.write(
+                    f"Probability of predicted class: {confidence:.2f}%"
+                )
 
         except Exception as e:
             st.error(f"Prediction Error: {e}")
+
 
 # ---------------- FOOTER ----------------
 st.markdown("""
