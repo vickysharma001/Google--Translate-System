@@ -1,138 +1,217 @@
 
 import streamlit as st
 import pickle
+from pathlib import Path
 
-# Load Model and Vectorizer
-model = pickle.load(open("model.pkl", "rb"))
-cv = pickle.load(open("vectorizer.pkl", "rb"))
-
-# Page Configuration
+# ---------------- PAGE CONFIG ----------------
 st.set_page_config(
     page_title="AI Text Predictor",
     page_icon="🤖",
     layout="centered"
 )
 
-# Custom CSS
+# ---------------- LOAD MODEL ----------------
+BASE_DIR = Path(__file__).resolve().parent
+
+MODEL_PATH = BASE_DIR / "model.pkl"
+VECTORIZER_PATH = BASE_DIR / "vectorizer.pkl"
+
+@st.cache_resource
+def load_model():
+    if not MODEL_PATH.exists():
+        raise FileNotFoundError(f"Missing file: {MODEL_PATH}")
+
+    if not VECTORIZER_PATH.exists():
+        raise FileNotFoundError(f"Missing file: {VECTORIZER_PATH}")
+
+    with open(MODEL_PATH, "rb") as f:
+        model = pickle.load(f)
+
+    with open(VECTORIZER_PATH, "rb") as f:
+        cv = pickle.load(f)
+
+    return model, cv
+
+try:
+    model, cv = load_model()
+    model_loaded = True
+except Exception as e:
+    model_loaded = False
+    st.error(f"Model Loading Error: {e}")
+
+# ---------------- CUSTOM CSS ----------------
 st.markdown("""
 <style>
 
 .stApp {
-    background: radial-gradient(circle at top,
-    #25205c 0%, #10101f 45%, #050510 100%);
+    background:
+    radial-gradient(circle at 50% 0%, #35216f 0%, transparent 45%),
+    linear-gradient(135deg, #080817, #11112d, #050510);
     color: white;
 }
 
 .main-title {
     text-align: center;
     font-size: 42px;
-    font-weight: 800;
-    color: #ffffff;
-    text-shadow: 0px 0px 20px #8b5cf6;
+    font-weight: 900;
+    background: linear-gradient(90deg, #c084fc, #60a5fa, #c084fc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0px 0px 25px rgba(139,92,246,0.3);
+    animation: glow 3s infinite alternate;
+}
+
+@keyframes glow {
+    from { filter: drop-shadow(0 0 5px #8b5cf6); }
+    to { filter: drop-shadow(0 0 18px #3b82f6); }
 }
 
 .subtitle {
     text-align: center;
-    color: #b9b9d5;
-    font-size: 16px;
-    margin-bottom: 35px;
+    color: #b8b8dc;
+    margin-bottom: 30px;
 }
 
 .card {
     background: linear-gradient(145deg,
-    rgba(70,60,120,0.45),
-    rgba(20,20,45,0.85));
+    rgba(80,65,145,0.35),
+    rgba(15,15,40,0.85));
     padding: 30px;
-    border-radius: 20px;
-    border: 1px solid rgba(150,120,255,0.4);
-    box-shadow: 0px 15px 35px rgba(0,0,0,0.5),
-                0px 0px 20px rgba(120,80,255,0.15);
+    border-radius: 22px;
+    border: 1px solid rgba(160,130,255,0.4);
+    box-shadow: 0 15px 40px rgba(0,0,0,0.5),
+                inset 0 1px 15px rgba(255,255,255,0.05);
     transition: 0.4s;
 }
 
 .card:hover {
-    transform: translateY(-6px) scale(1.01);
-    box-shadow: 0px 20px 45px rgba(100,70,255,0.3);
+    transform: translateY(-5px);
+    box-shadow: 0 20px 50px rgba(110,70,255,0.25);
 }
 
 .stTextArea textarea {
-    background-color: #17172d;
-    color: white;
-    border: 1px solid #7655ff;
-    border-radius: 12px;
+    background: #17172d !important;
+    color: white !important;
+    border: 1px solid #7655ff !important;
+    border-radius: 14px !important;
 }
 
 .stButton button {
     width: 100%;
-    background: linear-gradient(90deg,#6d28d9,#2563eb);
+    background: linear-gradient(90deg,#7c3aed,#2563eb);
     color: white;
     border: none;
-    border-radius: 12px;
+    border-radius: 14px;
     padding: 12px;
     font-size: 18px;
     font-weight: bold;
-    box-shadow: 0px 6px 20px rgba(100,70,255,0.4);
+    box-shadow: 0 7px 22px rgba(100,70,255,0.4);
     transition: 0.3s;
 }
 
 .stButton button:hover {
-    transform: translateY(-4px);
-    box-shadow: 0px 10px 30px #6d28d9;
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 12px 30px rgba(100,70,255,0.7);
     color: white;
+}
+
+.result-card {
+    background: rgba(50,40,100,0.35);
+    border: 1px solid rgba(160,130,255,0.5);
+    padding: 22px;
+    border-radius: 18px;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
 }
 
 .footer {
     text-align: center;
-    color: #8888aa;
-    margin-top: 50px;
+    color: #8585aa;
+    margin-top: 40px;
+    font-size: 13px;
 }
 
 </style>
 """, unsafe_allow_html=True)
 
-# Header
+# ---------------- HEADER ----------------
 st.markdown(
     '<div class="main-title">🤖 AI TEXT PREDICTOR</div>',
     unsafe_allow_html=True
 )
 
 st.markdown(
-    '<div class="subtitle">Intelligent NLP Prediction System</div>',
+    '<div class="subtitle">Intelligent NLP & Machine Learning System</div>',
     unsafe_allow_html=True
 )
 
-# Main Card
-st.markdown('<div class="card">', unsafe_allow_html=True)
+st.markdown("---")
 
-st.subheader("✨ Enter Your Text")
+# ---------------- MAIN APP ----------------
+st.markdown("### ✨ Enter Your Message")
 
 user = st.text_area(
-    "Write something here...",
-    placeholder="Type your message here...",
-    height=130
+    "Write something here",
+    placeholder="Example: Congratulations! You won a free prize...",
+    height=140
 )
 
-predict = st.button("🚀 Predict Now")
+col1, col2 = st.columns(2)
 
-st.markdown('</div>', unsafe_allow_html=True)
+with col1:
+    predict = st.button("🚀 Predict Now", use_container_width=True)
 
-# Prediction
+with col2:
+    clear = st.button("🗑️ Clear Text", use_container_width=True)
+
+if clear:
+    st.rerun()
+
+# ---------------- PREDICTION ----------------
 if predict:
 
-    if user.strip() == "":
+    if not model_loaded:
+        st.error("Please fix the model loading error first.")
+
+    elif not user.strip():
         st.warning("Please enter some text!")
 
     else:
-        data = cv.transform([user]).toarray()
-        output = model.predict(data)
+        try:
+            data = cv.transform([user])
+            output = model.predict(data)
 
-        st.markdown("---")
-        st.subheader("🎯 Prediction Result")
+            st.markdown("---")
+            st.markdown("### 🎯 Prediction Result")
 
-        st.success(f"Prediction: {output[0]}")
+            result = str(output[0]).lower()
 
-# Footer
-st.markdown(
-    '<div class="footer">Powered by Machine Learning & NLP | Made with ❤️</div>',
-    unsafe_allow_html=True
-)
+            if result == "spam":
+                st.error("🚨 SPAM MESSAGE DETECTED!")
+
+            elif result == "ham":
+                st.success("✅ NOT SPAM - SAFE MESSAGE")
+
+            else:
+                st.info(f"Prediction: {output[0]}")
+
+            # Probability
+            if hasattr(model, "predict_proba"):
+                probability = model.predict_proba(data)[0]
+                confidence = max(probability) * 100
+
+                st.markdown("#### Prediction Probability")
+                st.progress(float(max(probability)))
+                st.write(f"Probability of predicted class: {confidence:.2f}%")
+
+        except Exception as e:
+            st.error(f"Prediction Error: {e}")
+
+# ---------------- FOOTER ----------------
+st.markdown("""
+<div class="footer">
+    POWERED BY MACHINE LEARNING & NLP
+    <br>
+    Designed with 💜 | Streamlit Application
+</div>
+""", unsafe_allow_html=True)
